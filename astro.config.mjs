@@ -1,20 +1,19 @@
 // @ts-check
 import { defineConfig } from "astro/config";
 import tailwind from "@astrojs/tailwind";
-import wix from "@wix/astro";
 import react from "@astrojs/react";
 import sourceAttrsPlugin from "@wix/babel-plugin-jsx-source-attrs";
 import dynamicDataPlugin from "@wix/babel-plugin-jsx-dynamic-data";
-import vercel from "@astrojs/vercel"; // ✅ correct import (no /serverless)
 
-// import monitoring from "@wix/monitoring-astro"; // optional, disable for Vercel builds
+// NOTE: We disable SSR + Wix runtime bits to ensure a clean Vercel build.
+// If you later need SSR, we can switch back and re-enable step by step.
 
 const isBuild = process.env.NODE_ENV === "production";
 
-// https://astro.build/config
 export default defineConfig({
-  output: "server",
-  adapter: vercel({ runtime: "nodejs" }), // ✅ compatible with Vercel Node runtime
+  // Static export = most reliable on Vercel
+  output: "static",
+
   integrations: [
     {
       name: "framewire",
@@ -39,26 +38,23 @@ export default defineConfig({
       },
     },
     tailwind(),
-    wix({
-      enableHtmlEmbeds: isBuild,
-      enableAuthRoutes: true,
-    }),
-    // isBuild ? monitoring() : undefined, // enable only if Wix Cloud monitoring is needed
     react({
       babel: {
         plugins: [sourceAttrsPlugin, dynamicDataPlugin],
       },
     }),
   ],
+
   vite: {
     plugins: [],
   },
-  devToolbar: {
-    enabled: false,
-  },
+
+  devToolbar: { enabled: false },
+
   image: {
     domains: ["static.wixstatic.com"],
   },
+
   server: {
     allowedHosts: true,
     host: true,
