@@ -2,18 +2,32 @@
 import { defineConfig } from "astro/config";
 import tailwind from "@astrojs/tailwind";
 import wix from "@wix/astro";
-import monitoring from "@wix/monitoring-astro";
 import react from "@astrojs/react";
 import sourceAttrsPlugin from "@wix/babel-plugin-jsx-source-attrs";
 import dynamicDataPlugin from "@wix/babel-plugin-jsx-dynamic-data";
-import customErrorOverlayPlugin from "./vite-error-overlay-plugin.js";
-import vercel from "@astrojs/vercel/serverless"; // ⬅️ Vercel adapter
+import vercel from "@astrojs/vercel/serverless";
+
+// Try enabling later once deploy is green:
+// import monitoring from "@wix/monitoring-astro";
 
 const isBuild = process.env.NODE_ENV === "production";
 
+/** @type {import('vite').Plugin | null} */
+let errorOverlayPlugin = null;
+try {
+  // Only require the file in dev to avoid bundling/exec at build time
+  if (!isBuild) {
+    // eslint-disable-next-line import/no-unresolved
+    const mod = await import("./vite-error-overlay-plugin.js");
+    errorOverlayPlugin = mod.default ? mod.default() : mod();
+  }
+} catch (_) {
+  // ignore if file not present
+}
+
 export default defineConfig({
-  output: "server",               // required for serverless/SSR on Vercel
-  adapter: vercel(),              // ⬅️ use Vercel
+  output: "server",
+  adapter: vercel(),
   integrations: [
     {
       name: "framewire",
@@ -23,15 +37,15 @@ export default defineConfig({
             injectScript(
               "page",
               `const version = new URLSearchParams(location.search).get('framewire');
-              if (version){
-                const localUrl = 'http://localhost:3202/framewire/index.mjs';
-                const cdnUrl = \`https://static.parastorage.com/services/framewire/\${version}/index.mjs\`;
-                const url = version === 'local' ? localUrl : cdnUrl;
-                const framewireModule = await import(url);
-                globalThis.framewire = framewireModule;
-                framewireModule.init({}, import.meta.hot);
-                console.log('Framewire initialized');
-              }`
+               if (version){
+                 const localUrl = 'http://localhost:3202/framewire/index.mjs';
+                 const cdnUrl = \`https://static.parastorage.com/services/framewire/\${version}/index.mjs\`;
+                 const url = version === 'local' ? localUrl : cdnUrl;
+                 const framewireModule = await import(url);
+                 globalThis.framewire = framewireModule;
+                 framewireModule.init({}, import.meta.hot);
+                 console.log('Framewire initialized');
+               }`
             );
           }
         },
@@ -42,11 +56,14 @@ export default defineConfig({
       enableHtmlEmbeds: isBuild,
       enableAuthRoutes: true,
     }),
-    isBuild ? monitoring() : undefined,
+    // isBuild ? monitoring() : undefined, // ⬅️ temporarily disabled for Vercel
     react({ babel: { plugins: [sourceAttrsPlugin, dynamicDataPlugin] } }),
   ],
   vite: {
-    plugins: [customErrorOverlayPlugin()],
+    plugins: [
+      // only include the overlay plugin in dev
+      ...(errorOverlayPlugin ? [errorOverlayPlugin] : []),
+    ],
   },
   devToolbar: { enabled: false },
   image: { domains: ["static.wixstatic.com"] },
