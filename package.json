@@ -2,9 +2,13 @@
   "name": "wixstro",
   "type": "module",
   "version": "1.0.0",
+  "engines": {
+    "node": ">=18.17 <=22.x"
+  },
   "scripts": {
     "dev": "astro dev",
     "build": "astro build",
+    "build:ci": "astro build --verbose",
     "preview": "astro preview",
     "release": "wix release",
     "env": "wix env pull",
